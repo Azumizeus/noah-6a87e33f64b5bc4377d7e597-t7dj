@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+
+# Lockfiles
+bun.lock
+
+# Contracts (Anchor / Rust)
+contracts/node_modules
+contracts/target/debug
+contracts/target/release
+contracts/target/sbpf-solana-solana
+contracts/target/.rustc_info.json
+
+# Vite
+.vite
+
+# Build output
+dist
+
+# Cache
+cache
+
+# OS files
+.DS_Store
+
+
