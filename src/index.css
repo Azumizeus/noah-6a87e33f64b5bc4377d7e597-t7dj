@@ -2,95 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Design system — dark premium "vault" theme. All colors in HSL. */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Base surfaces — warm near-black, tinted toward the gold accent */
+    --background: 30 8% 5%;
+    --foreground: 36 20% 94%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 30 8% 8%;
+    --card-foreground: 36 20% 94%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 30 9% 7%;
+    --popover-foreground: 36 20% 94%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Gold accent */
+    --primary: 38 88% 58%;
+    --primary-foreground: 30 20% 8%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 30 6% 13%;
+    --secondary-foreground: 36 16% 88%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 30 6% 12%;
+    --muted-foreground: 34 8% 58%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 38 88% 58%;
+    --accent-foreground: 30 20% 8%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 6 72% 52%;
+    --destructive-foreground: 36 20% 96%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 34 8% 16%;
+    --input: 34 8% 16%;
+    --ring: 38 88% 58%;
 
-    --radius: 0.5rem;
+    --radius: 0.875rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Extended vault tokens */
+    --vault-elevated: 30 7% 10%;
+    --vault-hairline: 36 14% 22%;
+    --gold-soft: 38 70% 70%;
+    --success: 152 46% 46%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --shadow-vault: 0 1px 0 0 hsl(36 30% 90% / 0.06) inset,
+      0 24px 60px -24px hsl(30 40% 2% / 0.9),
+      0 2px 8px -2px hsl(30 40% 2% / 0.6);
+    --glow-gold: 0 0 0 1px hsl(38 88% 58% / 0.18),
+      0 18px 50px -22px hsl(38 88% 58% / 0.55);
 
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 30 8% 7%;
+    --sidebar-foreground: 36 16% 88%;
+    --sidebar-primary: 38 88% 58%;
+    --sidebar-primary-foreground: 30 20% 8%;
+    --sidebar-accent: 30 6% 13%;
+    --sidebar-accent-foreground: 36 16% 88%;
+    --sidebar-border: 34 8% 16%;
+    --sidebar-ring: 38 88% 58%;
   }
 }
 
@@ -99,12 +70,94 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
 }
 
-/* Wallet button */
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono-vault {
+    font-family: var(--font-mono);
+  }
+
+  .vault-surface {
+    background:
+      radial-gradient(120% 100% at 0% 0%, hsl(38 60% 50% / 0.07), transparent 55%),
+      linear-gradient(180deg, hsl(var(--vault-elevated)), hsl(var(--card)));
+    box-shadow: var(--shadow-vault);
+  }
+
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.32'/%3E%3C/svg%3E");
+  }
+}
+
+/* ---- Wallet adapter modal theming (matches the vault design system) ---- */
+.wallet-adapter-modal-wrapper {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--vault-hairline)) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--shadow-vault) !important;
+  font-family: var(--font-body) !important;
+}
+
+.wallet-adapter-modal-title {
+  font-family: var(--font-display) !important;
+  color: hsl(var(--foreground)) !important;
+  font-size: 20px !important;
+  letter-spacing: -0.02em !important;
+}
+
+.wallet-adapter-modal-list li button,
+.wallet-adapter-modal-list .wallet-adapter-button {
+  background: hsl(var(--secondary)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 12px !important;
+  font-family: var(--font-body) !important;
+  font-weight: 500 !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.wallet-adapter-modal-list li button:hover,
+.wallet-adapter-modal-list .wallet-adapter-button:hover {
+  background: hsl(var(--vault-elevated)) !important;
+  border-color: hsl(var(--primary) / 0.5) !important;
+  transform: translateY(-1px);
+}
+
+.wallet-adapter-modal-list-more,
+.wallet-adapter-modal-button-close {
+  color: hsl(var(--muted-foreground)) !important;
+  background: hsl(var(--secondary)) !important;
+}
+
+.wallet-adapter-modal-list-more svg {
+  stroke: hsl(var(--primary)) !important;
+}
+
 .wallet-adapter-button-trigger {
-  color: #ffffff !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
 }
