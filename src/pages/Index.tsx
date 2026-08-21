@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import WalletButton from '@/components/WalletButton';
 import VaultPanel from '@/components/VaultPanel';
+import SignatureTest from '@/components/SignatureTest';
 
 const Index = () => {
     return (
@@ -49,6 +50,10 @@ const Index = () => {
                     <VaultPanel />
                 </div>
             </main>
+
+            <section className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-28 sm:px-10">
+                <SignatureTest />
+            </section>
         </div>
     );
 };
