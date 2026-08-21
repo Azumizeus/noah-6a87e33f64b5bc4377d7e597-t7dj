@@ -1,6 +1,5 @@
 import {
     Connection,
-    Keypair,
     NONCE_ACCOUNT_LENGTH,
     NonceAccount,
     PublicKey,
@@ -17,50 +16,41 @@ import {
  * wallet shows an interstitial warning ("unrecognized domain", "transaction could
  * not be simulated" — standard for a custom Anchor program on devnet), the user
  * often needs longer than that to read it and approve. The signature then arrives
- * after expiry and the cluster rejects it:
+ * after expiry and the cluster rejects it.
  *
- *   "La blockhash a expiré car trop de temps s'est écoulé entre la création et la
- *    signature de la transaction."
+ * A durable nonce removes the time limit entirely: the transaction carries the
+ * value stored in an on-chain nonce account, which only changes when a
+ * `nonceAdvance` instruction runs.
  *
- * A durable nonce removes the time limit entirely. Instead of a recent blockhash,
- * the transaction carries the value stored in an on-chain nonce account. That value
- * only changes when a `nonceAdvance` instruction runs — so the transaction stays
- * valid indefinitely, whether the user approves in 5 seconds or 5 minutes.
+ * Trade-off: strictly one durable transaction in flight at a time per nonce
+ * account. The first one to land advances the nonce and invalidates the others.
  *
- * Trade-off: strictly one durable transaction at a time per nonce account. The
- * first one to land advances the nonce and invalidates every other transaction
- * built on the same value.
+ * ---------------------------------------------------------------------------
+ * IMPORTANT — single-signer design
+ * ---------------------------------------------------------------------------
+ * The nonce account is created with `createAccountWithSeed`, NOT `createAccount`.
+ *
+ * `createAccount` requires the brand-new account to sign its own creation, which
+ * means the setup transaction has two signers: the wallet and a local throwaway
+ * keypair. On Mobile Wallet Adapter that co-signature is a minefield:
+ *   - the `signers` option of `sendTransaction` is ignored by MWA;
+ *   - the `signTransaction` path carries no `chain`, so Seed Vault falls back to
+ *     mainnet and rejects with a network-mismatch error.
+ *
+ * `createAccountWithSeed` derives the address from (wallet, seed, programId), so
+ * only the wallet signs. One signer, no local keypair, no MWA edge cases — and
+ * the address is deterministic, so it survives a cleared localStorage.
  */
 
-const STORAGE_PREFIX = 'solana:durable-nonce:';
+/** Bump this if the account layout or authority scheme ever changes. */
+export const NONCE_SEED = 'durable-nonce-v1';
 
-const storageKey = (owner: PublicKey) => `${STORAGE_PREFIX}${owner.toBase58()}`;
-
-/** Reads the nonce account address previously created for this wallet. */
-export const getStoredNoncePubkey = (owner: PublicKey): PublicKey | null => {
-    try {
-        const raw = localStorage.getItem(storageKey(owner));
-        return raw ? new PublicKey(raw) : null;
-    } catch {
-        return null;
-    }
-};
-
-export const storeNoncePubkey = (owner: PublicKey, noncePubkey: PublicKey) => {
-    try {
-        localStorage.setItem(storageKey(owner), noncePubkey.toBase58());
-    } catch {
-        /* storage unavailable (private mode) — the nonce is simply recreated next time */
-    }
-};
-
-export const clearStoredNonce = (owner: PublicKey) => {
-    try {
-        localStorage.removeItem(storageKey(owner));
-    } catch {
-        /* ignore */
-    }
-};
+/**
+ * Deterministic nonce account address for a given wallet.
+ * Same wallet + same seed always yields the same address, on any device.
+ */
+export const deriveNonceAccount = (owner: PublicKey): Promise<PublicKey> =>
+    PublicKey.createWithSeed(owner, NONCE_SEED, SystemProgram.programId);
 
 export type NonceState = {
     /** The value to use as `recentBlockhash`. */
@@ -101,9 +91,9 @@ export const fetchNonceState = async (
  * Lists the required signers that are still missing a signature.
  *
  * A `VersionedTransaction` pre-fills `signatures` with 64 zero bytes per required
- * signer, so "unsigned" means "all bytes are zero" — not "undefined". This is the
- * cheapest way to prove, before sending, whether the local nonce keypair signature
- * actually survived the wallet round-trip.
+ * signer, so "unsigned" means "all bytes are zero" — not `undefined`.
+ * Kept for diagnostics: it proves at a glance that the setup transaction has
+ * exactly one required signer (the wallet).
  */
 export const missingSigners = (tx: VersionedTransaction): string[] => {
     const required = tx.message.header.numRequiredSignatures;
@@ -122,21 +112,23 @@ export const missingSigners = (tx: VersionedTransaction): string[] => {
 
 export type CreateNonceAccountResult = {
     transaction: VersionedTransaction;
-    /** Must co-sign the creation transaction. Disposable afterwards. */
-    nonceKeypair: Keypair;
+    /** Deterministic address the nonce account will live at. */
+    noncePubkey: PublicKey;
     blockhash: string;
     lastValidBlockHeight: number;
     minContextSlot: number;
     /** Rent-exempt deposit locked in the account (recoverable via nonceWithdraw). */
     lamports: number;
+    /** Number of required signatures — must be 1 (the wallet). */
+    requiredSigners: number;
 };
 
 /**
- * Builds the one-time setup transaction: create the account, then initialize it as
- * a nonce account with the connected wallet as authority.
+ * Builds the one-time setup transaction: allocate the seed-derived account, then
+ * initialize it as a nonce account with the connected wallet as authority.
  *
- * This single transaction still uses a classic blockhash — it is the only moment
- * where speed matters, and it is a one-off.
+ * The wallet is the ONLY signer. This transaction still uses a classic blockhash —
+ * it is the only moment where speed matters, and it happens once.
  */
 export const buildCreateNonceAccountTransaction = async ({
     connection,
@@ -145,22 +137,24 @@ export const buildCreateNonceAccountTransaction = async ({
     connection: Connection;
     payer: PublicKey;
 }): Promise<CreateNonceAccountResult> => {
-    const nonceKeypair = Keypair.generate();
+    const noncePubkey = await deriveNonceAccount(payer);
 
     const lamports = await connection.getMinimumBalanceForRentExemption(NONCE_ACCOUNT_LENGTH);
 
     const { context, value: latest } = await connection.getLatestBlockhashAndContext('confirmed');
 
     const instructions: TransactionInstruction[] = [
-        SystemProgram.createAccount({
+        SystemProgram.createAccountWithSeed({
             fromPubkey: payer,
-            newAccountPubkey: nonceKeypair.publicKey,
+            newAccountPubkey: noncePubkey,
+            basePubkey: payer,
+            seed: NONCE_SEED,
             lamports,
             space: NONCE_ACCOUNT_LENGTH,
             programId: SystemProgram.programId,
         }),
         SystemProgram.nonceInitialize({
-            noncePubkey: nonceKeypair.publicKey,
+            noncePubkey,
             authorizedPubkey: payer,
         }),
     ];
@@ -173,11 +167,12 @@ export const buildCreateNonceAccountTransaction = async ({
 
     return {
         transaction: new VersionedTransaction(message),
-        nonceKeypair,
+        noncePubkey,
         blockhash: latest.blockhash,
         lastValidBlockHeight: latest.lastValidBlockHeight,
         minContextSlot: context.slot,
         lamports,
+        requiredSigners: message.header.numRequiredSignatures,
     };
 };
 

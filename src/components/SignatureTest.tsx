@@ -21,11 +21,9 @@ import RuntimeInfo from '@/components/RuntimeInfo';
 import {
     buildCreateNonceAccountTransaction,
     buildDurableNonceTransaction,
-    clearStoredNonce,
+    deriveNonceAccount,
     fetchNonceState,
     missingSigners,
-    getStoredNoncePubkey,
-    storeNoncePubkey,
 } from '@/lib/durableNonce';
 
 /**
@@ -55,7 +53,7 @@ const errorMessage = (err: unknown) =>
 
 const SignatureTest = () => {
     const { connection } = useConnection();
-    const { publicKey, connected, sendTransaction, signTransaction } = useWallet();
+    const { publicKey, connected, sendTransaction } = useWallet();
 
     const [busy, setBusy] = useState(false);
     const [settingUp, setSettingUp] = useState(false);
@@ -73,7 +71,7 @@ const SignatureTest = () => {
     const log = useCallback((entry: Attempt) => setAttempts((prev) => [entry, ...prev]), []);
 
     /* ---------------------------------------------------------------- */
-    /* Nonce account discovery — runs once per connected wallet          */
+    /* Nonce account discovery — deterministic, no localStorage needed   */
     /* ---------------------------------------------------------------- */
 
     useEffect(() => {
@@ -85,28 +83,19 @@ const SignatureTest = () => {
             return;
         }
 
-        const stored = getStoredNoncePubkey(publicKey);
-        if (!stored) {
-            setNoncePubkey(null);
-            setNonceStatus('missing');
-            return;
-        }
-
         setNonceStatus('checking');
         void (async () => {
             try {
-                const state = await fetchNonceState(connection, stored, publicKey);
+                // The address is derived from the wallet + a fixed seed, so it is
+                // the same on every device and survives a cleared browser storage.
+                const derived = await deriveNonceAccount(publicKey);
+                if (cancelled) return;
+                setNoncePubkey(derived);
+
+                const state = await fetchNonceState(connection, derived, publicKey);
                 if (cancelled) return;
 
-                if (state) {
-                    setNoncePubkey(stored);
-                    setNonceStatus('ready');
-                } else {
-                    // Stored address is stale (wrong cluster, closed account, …).
-                    clearStoredNonce(publicKey);
-                    setNoncePubkey(null);
-                    setNonceStatus('missing');
-                }
+                setNonceStatus(state ? 'ready' : 'missing');
             } catch {
                 if (!cancelled) setNonceStatus('missing');
             }
@@ -128,65 +117,40 @@ const SignatureTest = () => {
         setSetupError(null);
         setSetupDiag(null);
         try {
-            const { transaction, nonceKeypair, blockhash, lastValidBlockHeight } =
-                await buildCreateNonceAccountTransaction({ connection, payer: publicKey });
+            const {
+                transaction,
+                noncePubkey: derived,
+                blockhash,
+                lastValidBlockHeight,
+                minContextSlot,
+                requiredSigners,
+            } = await buildCreateNonceAccountTransaction({ connection, payer: publicKey });
 
-            // --- Step 1: sign locally, explicitly. -------------------------
-            // The `signers` option of `sendTransaction` is applied reliably for
-            // legacy `Transaction`, but Mobile Wallet Adapter overrides
-            // `sendTransaction` entirely and does not honour it for
-            // `VersionedTransaction`. The transaction then reaches Seed Vault
-            // without the nonce account signature, and simulation fails with a
-            // generic "Transaction simulation failed".
-            transaction.sign([nonceKeypair]);
-
-            const afterLocal = missingSigners(transaction);
-
-            let signature: string;
-            let path: string;
-
-            if (signTransaction) {
-                // --- Step 2: let the wallet add its own signature. ---------
-                const signed = await signTransaction(transaction);
-
-                // Some adapters (MWA included) rebuild the transaction from the
-                // message bytes and drop signatures they did not produce. Signing
-                // order is irrelevant — every signer signs the same message bytes —
-                // so re-applying the local signature afterwards is safe and makes
-                // the flow immune to that behaviour.
-                signed.sign([nonceKeypair]);
-
-                const afterWallet = missingSigners(signed);
-                if (afterWallet.length > 0) {
-                    throw new Error(
-                        `Signature(s) manquante(s) apr\u00e8s le wallet : ${afterWallet
-                            .map((k) => `${k.slice(0, 4)}\u2026${k.slice(-4)}`)
-                            .join(', ')}`,
-                    );
-                }
-
-                // --- Step 3: send raw, bypassing the wallet's own send path. --
-                // `skipPreflight` avoids the opaque wallet-side simulation error;
-                // any real problem still surfaces at confirmation.
-                signature = await connection.sendRawTransaction(signed.serialize(), {
-                    skipPreflight: true,
-                    preflightCommitment: 'confirmed',
-                });
-                path = 'signTransaction + sendRawTransaction';
-            } else {
-                // Fallback for adapters exposing only `sendTransaction`.
-                // The transaction is already locally signed at this point.
-                signature = await sendTransaction(transaction, connection, {
-                    skipPreflight: true,
-                    preflightCommitment: 'confirmed',
-                });
-                path = 'sendTransaction (pr\u00e9-sign\u00e9)';
+            // Guard: the seed-derived design must yield exactly one signer.
+            // If this ever trips, the transaction would need a co-signature and
+            // we would be back in MWA edge-case territory.
+            if (requiredSigners !== 1) {
+                throw new Error(
+                    `Transaction \u00e0 ${requiredSigners} signataires — attendu 1 (wallet seul).`,
+                );
             }
 
+            const pending = missingSigners(transaction);
+
+            // Single signer → the standard `sendTransaction` path is enough.
+            // This maps to the wallet-standard `signAndSendTransaction` feature,
+            // which is the ONLY one that carries an explicit `chain` value
+            // (`solana:devnet`, set on the adapter in App.tsx). `signTransaction`
+            // carries no chain, which is what made Seed Vault assume mainnet.
+            const signature = await sendTransaction(transaction, connection, {
+                minContextSlot,
+                preflightCommitment: 'confirmed',
+            });
+
             setSetupDiag(
-                `${path} \u00b7 sign. locale ${
-                    afterLocal.includes(nonceKeypair.publicKey.toBase58()) ? 'KO' : 'OK'
-                }`,
+                `sendTransaction \u00b7 signataires requis: ${requiredSigners} (${pending
+                    .map(shortKey)
+                    .join(', ')}) \u00b7 nonce: ${shortKey(derived.toBase58())}`,
             );
 
             const result = await connection.confirmTransaction(
@@ -197,15 +161,14 @@ const SignatureTest = () => {
                 throw new Error(`Erreur on-chain : ${JSON.stringify(result.value.err)}`);
             }
 
-            storeNoncePubkey(publicKey, nonceKeypair.publicKey);
-            setNoncePubkey(nonceKeypair.publicKey);
+            setNoncePubkey(derived);
             setNonceStatus('ready');
         } catch (err) {
             setSetupError(errorMessage(err));
         } finally {
             setSettingUp(false);
         }
-    }, [connection, connected, publicKey, sendTransaction, signTransaction]);
+    }, [connection, connected, publicKey, sendTransaction]);
 
     /* ---------------------------------------------------------------- */
     /* Test transaction                                                  */
@@ -217,7 +180,7 @@ const SignatureTest = () => {
         counter.current += 1;
         const id = counter.current;
         const startedAt = performance.now();
-        const durable = useDurable && !!noncePubkey;
+        const durable = useDurable && !!noncePubkey && nonceStatus === 'ready';
 
         setBusy(true);
         try {
@@ -244,9 +207,7 @@ const SignatureTest = () => {
                 // Read the current nonce value straight from the account.
                 const state = await fetchNonceState(connection, noncePubkey, publicKey);
                 if (!state) {
-                    throw new Error(
-                        'Compte nonce introuvable ou autorité invalide — recréez-le.',
-                    );
+                    throw new Error('Compte nonce introuvable ou autorité invalide — recréez-le.');
                 }
 
                 const tx = buildDurableNonceTransaction({
@@ -327,7 +288,7 @@ const SignatureTest = () => {
         } finally {
             setBusy(false);
         }
-    }, [connection, connected, log, noncePubkey, publicKey, sendTransaction, useDurable]);
+    }, [connection, connected, log, noncePubkey, nonceStatus, publicKey, sendTransaction, useDurable]);
 
     const reset = useCallback(() => {
         setAttempts([]);
@@ -421,6 +382,7 @@ const SignatureTest = () => {
                                             style={{ backgroundColor: 'hsl(var(--primary))' }}
                                         />
                                         aucun compte nonce
+                                        {noncePubkey && ` (${shortKey(noncePubkey.toBase58())})`}
                                     </span>
                                 )}
                             </div>
