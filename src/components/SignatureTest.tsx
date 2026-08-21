@@ -3,8 +3,9 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import {
     PublicKey,
     SystemProgram,
-    Transaction,
     TransactionInstruction,
+    TransactionMessage,
+    VersionedTransaction,
 } from '@solana/web3.js';
 import { AlertTriangle, CheckCircle2, Loader2, RotateCcw, XCircle, Zap } from 'lucide-react';
 
@@ -46,34 +47,37 @@ const SignatureTest = () => {
 
         setBusy(true);
         try {
-            // Legacy Transaction on purpose: Seed Vault / MWA signing is the most
-            // reliable path with v0 messages still being inconsistently supported
-            // across mobile wallet implementations.
-            const tx = new Transaction();
-
-            // 0-lamport self transfer — zero financial risk, still a real signature.
-            tx.add(
+            const instructions = [
+                // 0-lamport self transfer — zero financial risk, still a real signature.
                 SystemProgram.transfer({
                     fromPubkey: publicKey,
                     toPubkey: publicKey,
                     lamports: 0,
                 }),
-            );
-
-            // Uniqueness nonce.
-            tx.add(
+                // Uniqueness nonce.
                 new TransactionInstruction({
                     keys: [],
                     programId: MEMO_PROGRAM_ID,
                     data: Buffer.from(`sigtest#${id}:${Date.now()}`, 'utf8'),
                 }),
-            );
+            ];
 
             const { context, value: latest } =
                 await connection.getLatestBlockhashAndContext('confirmed');
 
-            tx.feePayer = publicKey;
-            tx.recentBlockhash = latest.blockhash;
+            // VersionedTransaction (message v0) on purpose.
+            // The legacy `Transaction` path throws "Signature verification failed.
+            // Missing signature for public key [...]" under Mobile Wallet Adapter /
+            // Seed Vault: `Transaction.serialize()` enforces a signature check that
+            // runs before MWA has attached its signature. `VersionedTransaction`
+            // has no such guard, so the MWA round-trip completes normally.
+            const message = new TransactionMessage({
+                payerKey: publicKey,
+                recentBlockhash: latest.blockhash,
+                instructions,
+            }).compileToV0Message();
+
+            const tx = new VersionedTransaction(message);
 
             const signature = await sendTransaction(tx, connection, {
                 minContextSlot: context.slot,
@@ -141,6 +145,9 @@ const SignatureTest = () => {
                         <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-muted-foreground">
                             Transfert de 0 lamport vers votre propre adresse, sur devnet. Aucun
                             risque : seuls les frais de réseau devnet sont consommés.
+                        </p>
+                        <p className="mt-2 font-mono-vault text-[11px] uppercase tracking-[0.14em] text-muted-foreground/70">
+                            VersionedTransaction v0 · RPC dédié
                         </p>
                     </div>
 
