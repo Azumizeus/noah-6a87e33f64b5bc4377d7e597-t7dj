@@ -8,6 +8,7 @@ import {
     VersionedTransaction,
 } from '@solana/web3.js';
 import { AlertTriangle, CheckCircle2, Loader2, RotateCcw, XCircle, Zap } from 'lucide-react';
+import RuntimeInfo from '@/components/RuntimeInfo';
 
 /**
  * Memo program — used only to make each test transaction byte-unique.
@@ -146,9 +147,9 @@ const SignatureTest = () => {
                             Transfert de 0 lamport vers votre propre adresse, sur devnet. Aucun
                             risque : seuls les frais de réseau devnet sont consommés.
                         </p>
-                        <p className="mt-2 font-mono-vault text-[11px] uppercase tracking-[0.14em] text-muted-foreground/70">
-                            VersionedTransaction v0 · RPC dédié
-                        </p>
+                        <div className="mt-3">
+                            <RuntimeInfo />
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-3">

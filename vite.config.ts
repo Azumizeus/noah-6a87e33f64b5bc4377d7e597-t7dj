@@ -18,6 +18,11 @@ export default defineConfig(({ mode }) => ({
       binaryInterval: 500,
     },
   },
+  define: {
+    // Horodatage figé au moment du build — permet de vérifier en un coup d'œil
+    // que le déploiement testé correspond bien au dernier build complet.
+    __BUILD_STAMP__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [react(), mode === "development" && componentTagger()],
   resolve: {
     alias: {
