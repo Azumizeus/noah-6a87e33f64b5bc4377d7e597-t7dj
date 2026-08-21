@@ -23,6 +23,7 @@ import {
     buildDurableNonceTransaction,
     clearStoredNonce,
     fetchNonceState,
+    missingSigners,
     getStoredNoncePubkey,
     storeNoncePubkey,
 } from '@/lib/durableNonce';
@@ -54,7 +55,7 @@ const errorMessage = (err: unknown) =>
 
 const SignatureTest = () => {
     const { connection } = useConnection();
-    const { publicKey, connected, sendTransaction } = useWallet();
+    const { publicKey, connected, sendTransaction, signTransaction } = useWallet();
 
     const [busy, setBusy] = useState(false);
     const [settingUp, setSettingUp] = useState(false);
@@ -63,6 +64,7 @@ const SignatureTest = () => {
     const [noncePubkey, setNoncePubkey] = useState<PublicKey | null>(null);
     const [nonceStatus, setNonceStatus] = useState<NonceStatus>('idle');
     const [setupError, setSetupError] = useState<string | null>(null);
+    const [setupDiag, setSetupDiag] = useState<string | null>(null);
     const counter = useRef(0);
 
     const successes = attempts.filter((a) => a.ok).length;
@@ -124,17 +126,68 @@ const SignatureTest = () => {
 
         setSettingUp(true);
         setSetupError(null);
+        setSetupDiag(null);
         try {
-            const { transaction, nonceKeypair, blockhash, lastValidBlockHeight, minContextSlot } =
+            const { transaction, nonceKeypair, blockhash, lastValidBlockHeight } =
                 await buildCreateNonceAccountTransaction({ connection, payer: publicKey });
 
-            // The new account must co-sign its own creation. The wallet adapter
-            // applies `signers` before handing the transaction to the wallet.
-            const signature = await sendTransaction(transaction, connection, {
-                signers: [nonceKeypair],
-                minContextSlot,
-                preflightCommitment: 'confirmed',
-            });
+            // --- Step 1: sign locally, explicitly. -------------------------
+            // The `signers` option of `sendTransaction` is applied reliably for
+            // legacy `Transaction`, but Mobile Wallet Adapter overrides
+            // `sendTransaction` entirely and does not honour it for
+            // `VersionedTransaction`. The transaction then reaches Seed Vault
+            // without the nonce account signature, and simulation fails with a
+            // generic "Transaction simulation failed".
+            transaction.sign([nonceKeypair]);
+
+            const afterLocal = missingSigners(transaction);
+
+            let signature: string;
+            let path: string;
+
+            if (signTransaction) {
+                // --- Step 2: let the wallet add its own signature. ---------
+                const signed = await signTransaction(transaction);
+
+                // Some adapters (MWA included) rebuild the transaction from the
+                // message bytes and drop signatures they did not produce. Signing
+                // order is irrelevant — every signer signs the same message bytes —
+                // so re-applying the local signature afterwards is safe and makes
+                // the flow immune to that behaviour.
+                signed.sign([nonceKeypair]);
+
+                const afterWallet = missingSigners(signed);
+                if (afterWallet.length > 0) {
+                    throw new Error(
+                        `Signature(s) manquante(s) apr\u00e8s le wallet : ${afterWallet
+                            .map((k) => `${k.slice(0, 4)}\u2026${k.slice(-4)}`)
+                            .join(', ')}`,
+                    );
+                }
+
+                // --- Step 3: send raw, bypassing the wallet's own send path. --
+                // `skipPreflight` avoids the opaque wallet-side simulation error;
+                // any real problem still surfaces at confirmation.
+                signature = await connection.sendRawTransaction(signed.serialize(), {
+                    skipPreflight: true,
+                    preflightCommitment: 'confirmed',
+                });
+                path = 'signTransaction + sendRawTransaction';
+            } else {
+                // Fallback for adapters exposing only `sendTransaction`.
+                // The transaction is already locally signed at this point.
+                signature = await sendTransaction(transaction, connection, {
+                    skipPreflight: true,
+                    preflightCommitment: 'confirmed',
+                });
+                path = 'sendTransaction (pr\u00e9-sign\u00e9)';
+            }
+
+            setSetupDiag(
+                `${path} \u00b7 sign. locale ${
+                    afterLocal.includes(nonceKeypair.publicKey.toBase58()) ? 'KO' : 'OK'
+                }`,
+            );
 
             const result = await connection.confirmTransaction(
                 { signature, blockhash, lastValidBlockHeight },
@@ -152,7 +205,7 @@ const SignatureTest = () => {
         } finally {
             setSettingUp(false);
         }
-    }, [connection, connected, publicKey, sendTransaction]);
+    }, [connection, connected, publicKey, sendTransaction, signTransaction]);
 
     /* ---------------------------------------------------------------- */
     /* Test transaction                                                  */
@@ -390,6 +443,12 @@ const SignatureTest = () => {
                                         </>
                                     )}
                                 </button>
+                            )}
+
+                            {setupDiag && (
+                                <p className="mt-3 ml-7 break-words font-mono-vault text-[11px] text-muted-foreground/70">
+                                    {setupDiag}
+                                </p>
                             )}
 
                             {setupError && (

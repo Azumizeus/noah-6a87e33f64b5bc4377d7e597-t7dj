@@ -97,6 +97,29 @@ export const fetchNonceState = async (
     return { nonce: state.nonce, minContextSlot: context.slot };
 };
 
+/**
+ * Lists the required signers that are still missing a signature.
+ *
+ * A `VersionedTransaction` pre-fills `signatures` with 64 zero bytes per required
+ * signer, so "unsigned" means "all bytes are zero" — not "undefined". This is the
+ * cheapest way to prove, before sending, whether the local nonce keypair signature
+ * actually survived the wallet round-trip.
+ */
+export const missingSigners = (tx: VersionedTransaction): string[] => {
+    const required = tx.message.header.numRequiredSignatures;
+    const keys = tx.message.staticAccountKeys;
+    const missing: string[] = [];
+
+    for (let i = 0; i < required; i += 1) {
+        const sig = tx.signatures[i];
+        if (!sig || sig.every((byte) => byte === 0)) {
+            missing.push(keys[i]?.toBase58() ?? `#${i}`);
+        }
+    }
+
+    return missing;
+};
+
 export type CreateNonceAccountResult = {
     transaction: VersionedTransaction;
     /** Must co-sign the creation transaction. Disposable afterwards. */
