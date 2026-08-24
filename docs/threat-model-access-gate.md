@@ -1,8 +1,23 @@
 # SEEKER I — Threat Model : `access_gate`
 
 > Statut : **BROUILLON — en attente de validation fondateur**
-> Aucune ligne de Rust ne sera écrite avant validation de ce document.
 > Version 0.1 — Phase 1, moteur CITADEL.
+
+### Journal de décision
+
+| Date | Décision |
+|---|---|
+| Phase 1 | Sections 1 à 11 relues par le fondateur. Feu vert donné pour l'implémentation du Program. |
+| Phase 1 | Section 10 — les 5 points ouverts sont implémentés avec les **valeurs par défaut recommandées** ci-dessous, modifiables sans redéploiement (sauf E5) : |
+
+1. **E5 — upgrade de tier** : un achat T2 alors qu'un T1 est actif **remplace** le tier et applique la règle E2 sur la durée. Pas de prorata.
+2. **Plafond d'accumulation** : 180 jours.
+3. **Seuils oracle** : staleness max 60 s, confidence max 200 bps.
+4. **Remboursement** : aucun remboursement on-chain en V1. À refléter dans les CGU.
+5. **Multi-sig Squads dès le devnet**, autorité admin distincte de l'upgrade authority.
+
+Ces valeurs sont stockées en compte `Config` / `PaymentMethod`, donc ajustables
+par le multi-sig sans redéploiement. Seul le point 1 est une règle de code.
 
 ---
 
