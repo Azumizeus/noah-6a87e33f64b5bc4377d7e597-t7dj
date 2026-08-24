@@ -1,178 +1,134 @@
 // src/components/SettingsAIProviders.tsx
 //
-// Écran de configuration des fournisseurs IA.
-//
-// Aucune clé n'est persistée côté navigateur : ni localStorage, ni cookie.
-// Les valeurs saisies vivent en mémoire le temps de la session et servent
-// uniquement au développement local. En production, le relais serveur détient
-// les clés et ce panneau devient purement informatif.
+// Panneau de configuration du relais IA — UI ONLY.
+// Aucune saisie de cle API : le navigateur ne manipule que l'URL du proxy.
 
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, ShieldAlert, XCircle } from 'lucide-react';
-import { PROVIDER_CONFIGS, PROVIDER_LIST } from '@/lib/ai-providers/config';
+import { Loader2, ShieldCheck } from 'lucide-react';
+
 import { aiClient } from '@/lib/ai-providers/client';
-import type { AIProvider } from '@/lib/ai-providers/types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-type TestState =
-    | { status: 'idle' }
-    | { status: 'testing' }
-    | { status: 'ok'; latency: number }
-    | { status: 'error'; message: string };
+type TestState = 'idle' | 'testing' | 'ok' | 'failed';
 
-const SettingsAIProviders = () => {
-    const [tests, setTests] = useState<Partial<Record<AIProvider, TestState>>>({});
-    const proxyEnabled = aiClient.isProxyEnabled();
+const ENV_PROXY_URL = (import.meta.env.VITE_AI_PROXY_URL as string) ?? '';
 
-    const handleKeyChange = (provider: AIProvider, value: string) => {
-        aiClient.setApiKey(provider, value);
-        setTests((prev) => ({ ...prev, [provider]: { status: 'idle' } }));
-    };
+export function SettingsAIProviders() {
+  const [proxyUrl, setProxyUrl] = useState(ENV_PROXY_URL);
+  const [saved, setSaved] = useState(Boolean(ENV_PROXY_URL));
+  const [state, setState] = useState<TestState>('idle');
+  const [message, setMessage] = useState('');
 
-    const handleTest = async (provider: AIProvider) => {
-        setTests((prev) => ({ ...prev, [provider]: { status: 'testing' } }));
-        try {
-            const res = await aiClient.call({
-                provider,
-                prompt: 'Réponds uniquement par le mot OK.',
-            });
-            setTests((prev) => ({
-                ...prev,
-                [provider]: { status: 'ok', latency: res.latency },
-            }));
-        } catch (err) {
-            setTests((prev) => ({
-                ...prev,
-                [provider]: {
-                    status: 'error',
-                    message: err instanceof Error ? err.message : 'Échec inconnu',
-                },
-            }));
-        }
-    };
+  const handleSetProxy = () => {
+    const url = proxyUrl.trim();
+    if (!url) {
+      setState('failed');
+      setMessage('URL du relais requise.');
+      return;
+    }
 
-    return (
-        <section className="w-full max-w-3xl space-y-6">
-            <header>
-                <p className="mb-2 text-[11px] uppercase tracking-[0.3em] text-primary/80">
-                    SAGE
-                </p>
-                <h2 className="text-2xl font-semibold text-foreground sm:text-[28px]">
-                    Fournisseurs IA
-                </h2>
-                <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-                    Les clés saisies ici restent en mémoire, uniquement pour la durée de
-                    cet onglet. Elles ne sont écrites nulle part et ne sont jamais
-                    envoyées ailleurs qu'au fournisseur choisi.
-                </p>
-            </header>
+    aiClient.setProxyBaseUrl(url);
+    setSaved(true);
+    setState('idle');
+    setMessage('Relais enregistre pour cette session.');
+  };
 
-            <div
-                className="flex items-start gap-3 rounded-[14px] border border-[hsl(var(--vault-hairline))] bg-[hsl(var(--vault-elevated))] p-4"
-                role="status"
-            >
-                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary/80" />
-                <p className="text-[13px] leading-relaxed text-muted-foreground">
-                    {proxyEnabled ? (
-                        <>
-                            Relais serveur actif. Les clés sont détenues côté serveur et ne
-                            transitent jamais par le navigateur.
-                        </>
-                    ) : (
-                        <>
-                            Relais serveur inactif — mode développement local. Plusieurs API
-                            refusent les appels directs depuis un navigateur : un échec de
-                            test est attendu tant que le relais n'est pas branché.
-                        </>
-                    )}
-                </p>
-            </div>
+  const handleTestProxy = async () => {
+    setState('testing');
+    setMessage('');
 
-            <div className="space-y-4">
-                {PROVIDER_LIST.map((provider) => {
-                    const config = PROVIDER_CONFIGS[provider];
-                    const test = tests[provider] ?? { status: 'idle' };
-                    const inputId = `ai-key-${provider}`;
+    try {
+      const response = await aiClient.call({
+        provider: 'anthropic',
+        prompt: 'Respond with a single word: OK.',
+      });
+      setState('ok');
+      setMessage(
+        `Relais operationnel — ${response.provider}, ${response.latency} ms.`,
+      );
+    } catch (error) {
+      setState('failed');
+      setMessage(
+        error instanceof Error ? error.message : 'Erreur inconnue.',
+      );
+    }
+  };
 
-                    return (
-                        <article
-                            key={provider}
-                            className="rounded-[18px] border border-[hsl(var(--vault-hairline))] vault-surface p-5 sm:p-6"
-                        >
-                            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-                                <div>
-                                    <h3 className="text-base font-semibold text-foreground">
-                                        {config.label}
-                                    </h3>
-                                    <p className="font-mono-vault mt-1 text-[12px] text-muted-foreground">
-                                        {config.model}
-                                    </p>
-                                </div>
-                                {config.unverified && (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--border))] px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                                        <AlertTriangle className="h-3 w-3" />
-                                        Endpoint non vérifié
-                                    </span>
-                                )}
-                            </div>
+  return (
+    <section className="space-y-6 rounded-lg border border-border bg-card p-6">
+      <header className="space-y-1">
+        <h3 className="text-lg font-semibold tracking-tight">
+          Relais IA
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Les cles des fournisseurs sont detenues et dechiffrees uniquement par
+          la fonction serveur. Le navigateur ne les voit jamais.
+        </p>
+      </header>
 
-                            <label
-                                htmlFor={inputId}
-                                className="mb-2 block text-[12px] uppercase tracking-[0.14em] text-muted-foreground"
-                            >
-                                Clé API
-                            </label>
-                            <div className="flex flex-col gap-3 sm:flex-row">
-                                <input
-                                    id={inputId}
-                                    type="password"
-                                    autoComplete="off"
-                                    spellCheck={false}
-                                    disabled={proxyEnabled}
-                                    placeholder={
-                                        proxyEnabled
-                                            ? 'Gérée côté serveur'
-                                            : `Clé ${config.label}`
-                                    }
-                                    onChange={(e) => handleKeyChange(provider, e.target.value)}
-                                    className="h-11 flex-1 rounded-[12px] border border-[hsl(var(--input))] bg-background/60 px-4 text-sm text-foreground outline-none transition-colors duration-200 placeholder:text-muted-foreground/60 focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]/30 disabled:opacity-50"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => handleTest(provider)}
-                                    disabled={test.status === 'testing' || config.unverified}
-                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-[12px] border border-[hsl(var(--border))] bg-secondary px-5 text-sm font-medium text-secondary-foreground transition-all duration-300 hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]/40 disabled:opacity-40"
-                                >
-                                    {test.status === 'testing' && (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    )}
-                                    Tester
-                                </button>
-                            </div>
+      <div className="space-y-2">
+        <Label htmlFor="ai-proxy-url">
+          URL de la fonction Supabase
+        </Label>
+        <Input
+          id="ai-proxy-url"
+          type="url"
+          inputMode="url"
+          spellCheck={false}
+          value={proxyUrl}
+          onChange={(event) => {
+            setProxyUrl(event.target.value);
+            setSaved(false);
+            setState('idle');
+          }}
+          placeholder="https://<project>.supabase.co/functions/v1/ai-proxy"
+        />
+        <p className="text-xs text-muted-foreground">
+          Valeur par defaut lue depuis <code>VITE_AI_PROXY_URL</code>.
+        </p>
+      </div>
 
-                            <div className="mt-3 min-h-[20px] text-[13px]" aria-live="polite">
-                                {test.status === 'ok' && (
-                                    <span className="inline-flex items-center gap-2 text-[hsl(var(--success))]">
-                                        <CheckCircle2 className="h-4 w-4" />
-                                        Connexion établie — {test.latency} ms
-                                    </span>
-                                )}
-                                {test.status === 'error' && (
-                                    <span className="inline-flex items-start gap-2 text-destructive">
-                                        <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                                        {test.message}
-                                    </span>
-                                )}
-                            </div>
-                        </article>
-                    );
-                })}
-            </div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button type="button" onClick={handleSetProxy}>
+          Enregistrer le relais
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={!saved || state === 'testing'}
+          onClick={() => void handleTestProxy()}
+        >
+          {state === 'testing' && (
+            <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+          )}
+          Tester la connexion
+        </Button>
+      </div>
 
-            <p className="text-[13px] text-muted-foreground">
-                Outil d'analyse, pas un conseil en investissement.
-            </p>
-        </section>
-    );
-};
+      <p
+        aria-live="polite"
+        className={`min-h-5 text-xs ${
+          state === 'failed' ? 'text-destructive' : 'text-muted-foreground'
+        }`}
+      >
+        {message}
+      </p>
 
-export default SettingsAIProviders;
+      <div className="flex gap-3 rounded-md border border-border bg-muted/40 p-4">
+        <ShieldCheck
+          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <p>
+            Implementation serveur :{' '}
+            <code>supabase/functions/ai-proxy/index.ts</code>.
+          </p>
+          <p>Outil d&apos;analyse, pas un conseil en investissement.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
