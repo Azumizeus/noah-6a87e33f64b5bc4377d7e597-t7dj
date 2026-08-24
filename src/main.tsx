@@ -1,6 +1,8 @@
 // MUST be the first import to ensure Buffer is available globally
 import './polyfills';
 import './index.css';
+// i18n initialise avant le rendu de App.
+import './lib/i18n';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 

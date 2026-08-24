@@ -1,0 +1,44 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "pass": "Accès",
+    "settings": "Paramètres"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "subtitle": "Lecture Solana en temps réel",
+    "notConnected": "Connectez votre portefeuille pour commencer",
+    "placeholder": "Les données live arrivent en Phase 2 (radar SKYLINE)."
+  },
+  "pass": {
+    "title": "Pass d'accès",
+    "subtitle": "Accès on-chain, sans abonnement, sans compte.",
+    "t1": "Pass Sentinel",
+    "t1Duration": "7 jours",
+    "t1Detail": "Délai de scan : 5 minutes",
+    "t2": "Pass Oracle",
+    "t2Duration": "30 jours",
+    "t2Detail": "Scan temps réel et bouclier anti-rug",
+    "popular": "Le plus choisi",
+    "price": "Prix",
+    "buy": "Acheter le pass",
+    "pending": "Disponible une fois le programme access_gate livré (T1.2)."
+  },
+  "settings": {
+    "title": "Paramètres",
+    "aiProviders": "Fournisseurs IA",
+    "wallet": "Portefeuille",
+    "walletNote": "Détails du portefeuille et historique en Phase 2.",
+    "walletConnected": "Adresse connectée",
+    "network": "Réseau"
+  },
+  "wallet": {
+    "connected": "Connecté",
+    "notConnected": "Non connecté",
+    "connect": "Connecter le portefeuille"
+  },
+  "common": {
+    "disclaimer": "Outil d'analyse, pas un conseil en investissement.",
+    "notFound": "Page introuvable"
+  }
+}

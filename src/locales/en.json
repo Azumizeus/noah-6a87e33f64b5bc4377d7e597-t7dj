@@ -1,0 +1,44 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "pass": "Pass",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Trading Dashboard",
+    "subtitle": "Real-time Solana insights",
+    "notConnected": "Connect your wallet to get started",
+    "placeholder": "Live data arrives in Phase 2 (SKYLINE radar)."
+  },
+  "pass": {
+    "title": "Access Pass",
+    "subtitle": "On-chain access, no subscription, no account.",
+    "t1": "Sentinel Pass",
+    "t1Duration": "7 days",
+    "t1Detail": "Scanning delay: 5 minutes",
+    "t2": "Oracle Pass",
+    "t2Duration": "30 days",
+    "t2Detail": "Real-time scanning and rug shield",
+    "popular": "Most popular",
+    "price": "Price",
+    "buy": "Purchase Pass",
+    "pending": "Available once the access_gate program ships (T1.2)."
+  },
+  "settings": {
+    "title": "Settings",
+    "aiProviders": "AI Providers",
+    "wallet": "Wallet",
+    "walletNote": "Wallet details and transaction history arrive in Phase 2.",
+    "walletConnected": "Connected address",
+    "network": "Network"
+  },
+  "wallet": {
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "connect": "Connect Wallet"
+  },
+  "common": {
+    "disclaimer": "Analysis tool, not investment advice.",
+    "notFound": "Page not found"
+  }
+}

@@ -11,6 +11,10 @@ import {
   createDefaultWalletNotFoundHandler,
 } from '@solana-mobile/wallet-adapter-mobile';
 import { clusterApiUrl } from '@solana/web3.js';
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import Pass from './pages/Pass';
+import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
 import Index from './pages/Index';
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -56,7 +60,13 @@ const App = () => {
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/pass" element={<Pass />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+            {/* Ancienne page de demo Seed Vault — conservee, hors Layout. */}
+            <Route path="/demo" element={<Index />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster />
