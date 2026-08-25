@@ -1,0 +1,20 @@
+
+
+  access_gate
+    ✔ 1. initialize_config sets authority, treasury and both tier durations
+    ✔ 2. purchase_pass_sol tier 0 creates a 7-day pass and moves lamports to treasury
+    ✔ 3. purchase_pass_sol tier 1 creates a 30-day pass
+    ✔ 4. renewal while still valid extends expires_at instead of resetting
+    ✔ 5. purchase_pass_sol with a wrong treasury account fails
+    ✔ 6. purchase_pass_sol with an invalid tier index fails with InvalidTier
+    ✔ 7. purchase_pass_token with a non-whitelisted mint fails
+    ✔ 8. add_payment_mint whitelists a mint and purchase_pass_token moves tokens to the treasury ATA
+    ✔ 9. purchase_pass_token with a deactivated mint fails
+    ✔ 10. update_config by a non-authority signer fails
+    ✔ 11. purchasing while paused fails
+    ✔ 12. close_pass before expiry fails with PassStillActive
+    ✔ 13. close_pass after expiry refunds rent to the owner
+
+
+  13 passing (102ms)
+

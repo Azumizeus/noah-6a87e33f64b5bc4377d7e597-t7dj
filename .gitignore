@@ -14,6 +14,16 @@ contracts/target/.rustc_info.json
 # Vite
 .vite
 
+# Environnement — NE JAMAIS committer de secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Clefs Anchor / wallets locaux
+contracts/target/deploy/*-keypair.json
+contracts/target/wallet/*.json
+
 # Build output
 dist
 
