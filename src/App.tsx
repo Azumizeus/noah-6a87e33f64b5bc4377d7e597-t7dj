@@ -10,7 +10,7 @@ import {
   createDefaultAuthorizationResultCache,
   createDefaultWalletNotFoundHandler,
 } from '@solana-mobile/wallet-adapter-mobile';
-import { clusterApiUrl } from '@solana/web3.js';
+import { RPC_ENDPOINT, RPC_HEADERS } from '@/lib/solana';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Pass from './pages/Pass';
@@ -20,14 +20,9 @@ import Index from './pages/Index';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 const App = () => {
-  // RPC devnet dédié (Helius via VITE_SOLANA_RPC_URL) — le RPC public
-  // clusterApiUrl('devnet') rate-limite agressivement (429 "Connection rate
-  // limits exceeded"), surtout depuis un navigateur mobile où l'IP est
-  // partagée par l'opérateur.
-  const endpoint = useMemo(
-    () => (import.meta.env.VITE_SOLANA_RPC_URL as string) || clusterApiUrl('devnet'),
-    []
-  );
+  // RPC via l'Edge Function `rpc-proxy`. La clé Helius reste côté serveur :
+  // toute variable VITE_ finit en clair dans le bundle public.
+  const endpoint = useMemo(() => RPC_ENDPOINT, []);
 
   // ⚠️ Config identique à notre vrai projet BuildPact (frontend/src/App.tsx) :
   // - appIdentity.uri = window.location.origin, PAS une URL codée en dur
@@ -55,7 +50,11 @@ const App = () => {
   return (
     <ConnectionProvider
       endpoint={endpoint}
-      config={{ commitment: 'confirmed', confirmTransactionInitialTimeout: 90_000 }}
+      config={{
+        commitment: 'confirmed',
+        confirmTransactionInitialTimeout: 90_000,
+        httpHeaders: RPC_HEADERS,
+      }}
     >
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
