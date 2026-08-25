@@ -12,10 +12,14 @@
 //               pour les applications a cle partagee, il n'ouvre aucune breche.
 //   openai      CORS ouvert.
 //   openrouter  CORS ouvert, documente pour l'usage navigateur.
+//   mammouth    API 100% compatible OpenAI : seule la racine change
+//               (https://api.mammouth.ai/v1/chat/completions). Leur
+//               documentation ne se prononce pas sur CORS ; si l'appel
+//               navigateur est refuse, l'erreur remonte comme "reseau ou CORS"
+//               et il faudra retirer ce fournisseur ou passer par OpenRouter.
 //
-// Volontairement absents :
-//   mammouth / opencode — aucun endpoint public verifie. Lister un fournisseur
-//   avec une URL devinee produit un echec reseau illisible pour l'utilisateur.
+// Volontairement absent :
+//   opencode — retire sur decision produit.
 
 import type { AIProvider, AIProviderConfig } from './types';
 
@@ -49,6 +53,17 @@ export const PROVIDER_CONFIGS: Record<AIProvider, AIProviderConfig> = {
     temperature: 0.7,
     keysUrl: 'https://openrouter.ai/keys',
     keyPrefix: 'sk-or-',
+  },
+  mammouth: {
+    name: 'mammouth',
+    label: 'Mammouth.ai',
+    baseUrl: 'https://api.mammouth.ai/v1',
+    defaultModel: 'gpt-4o',
+    maxTokens: 2048,
+    temperature: 0.7,
+    keysUrl: 'https://mammouth.ai',
+    // Pas de prefixe impose documente : aucun controle de saisie, sinon on
+    // rejetterait des cles valides.
   },
 };
 

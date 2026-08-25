@@ -10,7 +10,7 @@
 // Il n'existe plus d'Edge Function `ai-proxy`. Toute reintroduction d'un relais
 // invaliderait la promesse affichee dans l'UI.
 
-export type AIProvider = 'anthropic' | 'openai' | 'openrouter';
+export type AIProvider = 'anthropic' | 'openai' | 'openrouter' | 'mammouth';
 
 export interface AIProviderConfig {
   name: AIProvider;
