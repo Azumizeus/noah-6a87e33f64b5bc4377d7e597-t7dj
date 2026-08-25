@@ -13,7 +13,7 @@
 //   HELIUS_API_KEY      cle Helius
 //   SOLANA_CLUSTER      "devnet" (defaut) ou "mainnet"
 
-import { serve } from 'https://deno.land/std@0.208.1/http/server.ts';
+import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
