@@ -61,6 +61,9 @@ const ALLOWED_METHODS = new Set([
 
   // Divers
   'getSlot',
+  // Horloge du cluster — utilisee pour evaluer l'expiration d'un Pass sans
+  // faire confiance a l'horloge du poste, que l'utilisateur peut modifier.
+  'getBlockTime',
   'getBlockHeight',
   'getGenesisHash',
   'getVersion',
